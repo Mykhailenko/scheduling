@@ -172,6 +172,8 @@ import com.google.common.collect.ImmutableSet;
 public class RMCore implements ResourceManager, InitActive, RunActive {
 
     private static final String CONTACT_UPGRADE_MESSAGE = "Number of nodes exceed the limitation from your contract. Please send an email to contact@activeeon.com for an upgrade.";
+    public static final String RMCORE_RESTORE_NODES_STARTED = "RMCore:restoreNodes started";
+    public static final String RMCORE_RESTORE_NODES_FINISHED = "RMCore:restoreNodes finished";
 
     /**
      * Limits the number of nodes the Resource Manager accepts. >-1 or null means UNLIMITED, <=0 enforces the limit.
@@ -486,7 +488,7 @@ public class RMCore implements ResourceManager, InitActive, RunActive {
     }
 
     private void restoreNodes(NodeSource nodeSource) {
-        logger.info("Start to recover nodes");
+        logger.info(RMCORE_RESTORE_NODES_STARTED); // this log line is important for 'unit' performance tests
         int lookUpTimeout = PAResourceManagerProperties.RM_NODELOOKUP_TIMEOUT.getValueAsInt();
         String nodeSourceName = nodeSource.getName();
 
@@ -532,7 +534,7 @@ public class RMCore implements ResourceManager, InitActive, RunActive {
         }
         logger.info("Total number of nodes recovered: " + totalRecoveredNodes + ", including eligible nodes: " +
                     totalEligibleRecoveredNodes);
-        logger.info("End of nodes recovery");
+        logger.info(RMCORE_RESTORE_NODES_FINISHED); // this log line is important for 'unit' performance tests
     }
 
     private RMNode restoreInternalNode(NodeSource nodeSource, RMNodeData rmNodeData, String nodeUrl, Node node) {

@@ -30,24 +30,38 @@ import org.apache.jmeter.protocol.java.sampler.JavaSamplerContext;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.threads.JMeterContextService;
 
+import org.junit.Test;
 import performancetests.recovery.helper.NodeRecoveryHelper;
+
+import static org.junit.Assert.assertTrue;
 
 
 public class NodeRecoveryTest extends AbstractJavaSamplerClient {
 
+    @Test
+    public void test() {
+        SampleResult sampleResult = new NodeRecoveryTest().runTestHelped(10);
+        assertTrue(sampleResult.isSuccessful());
+    }
+
     @Override
     public SampleResult runTest(JavaSamplerContext javaSamplerContext) {
+        final Integer nodesNumber = Integer.valueOf(JMeterContextService.getContext()
+                .getVariables()
+                .get("nodesNumber"));
+        return runTestHelped(nodesNumber);
+    }
+
+
+    public SampleResult runTestHelped(int nodesNumber) {
         SampleResult sampleResult = null;
         try {
-            final Integer nodesNumber = Integer.valueOf(JMeterContextService.getContext()
-                                                                            .getVariables()
-                                                                            .get("nodesNumber"));
-
             NodeRecoveryHelper nodeRecoveryHelper = new NodeRecoveryHelper();
+            final long initalTime = System.currentTimeMillis();
 
-            nodeRecoveryHelper.startKillStartScheduler();
+            nodeRecoveryHelper.startKillStartScheduler(nodesNumber);
 
-            sampleResult = SampleResult.createTestSample(nodeRecoveryHelper.timeSpentToRecoverNodes());
+            sampleResult = SampleResult.createTestSample(nodeRecoveryHelper.timeSpentToRecoverNodes(initalTime));
             sampleResult.setResponseCodeOK();
             sampleResult.setSuccessful(true);
             sampleResult.setResponseMessage("I'm Forever Blowing Bubbles");

@@ -27,73 +27,128 @@ package performancetests.recovery.helper;
 
 import java.io.File;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
-import org.apache.jmeter.protocol.java.sampler.JUnitSampler;
-import org.apache.jmeter.threads.JMeterVariables;
+import functionaltests.recover.TaskReconnectionToRecoveredNodeTest;
+import functionaltests.utils.*;
+import org.apache.log4j.Appender;
+import org.apache.log4j.Logger;
+import org.grep4j.core.model.Profile;
+import org.grep4j.core.model.ProfileBuilder;
+import org.grep4j.core.result.GrepResults;
 import org.ow2.proactive.resourcemanager.RMFactory;
+import org.ow2.proactive.resourcemanager.common.RMConstants;
+import org.ow2.proactive.resourcemanager.core.RMCore;
 import org.ow2.proactive.resourcemanager.frontend.ResourceManager;
 
-import functionaltests.recover.TaskReconnectionToRecoveredNodeTest;
 import functionaltests.recover.TaskReconnectionWithForkedTaskExecutorTest;
-import functionaltests.utils.SchedulerTHelper;
-import functionaltests.utils.TestNode;
-import functionaltests.utils.TestScheduler;
-import performancetests.recovery.NodeRecoveryTest;
+
+import static org.grep4j.core.Grep4j.constantExpression;
+import static org.grep4j.core.Grep4j.grep;
+import static org.grep4j.core.fluent.Dictionary.on;
+import static org.junit.Assert.assertEquals;
 
 
-public class NodeRecoveryHelper {
+public class NodeRecoveryHelper extends SchedulerFunctionalTestWithCustomConfigAndRestart {
 
-    private static final URL SCHEDULER_CONFIGURATION_START = NodeRecoveryTest.class.getResource("/functionaltests/config/functionalTSchedulerProperties.ini");
+    private static final URL SCHEDULER_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/scheduler-config-start.ini");
 
-    private static final URL RM_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/functionaltests/config/functionalTRMProperties-clean-db.ini");
+    private static final URL SCHEDULER_CONFIGURATION_RESTART = TaskReconnectionWithForkedTaskExecutorTest.class.getResource("/performancetests/config/scheduler-config-restart.ini");
+
+    private static final URL RM_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/rm-config-start.ini");
+
+    private static final URL RM_CONFIGURATION_RESTART = TaskReconnectionToRecoveredNodeTest.class.getResource("/performancetests/config/rm-config-restart.ini");
 
     private SchedulerTHelper schedulerHelper;
 
     private List<TestNode> nodes;
 
-    public void startKillStartScheduler() throws Exception {
+    public void startKillStartScheduler(int nodesNumber) throws Exception {
         RMFactory.setOsJavaProperty();
         schedulerHelper = new SchedulerTHelper(false,
-                                               new File(SCHEDULER_CONFIGURATION_START.toURI()).getAbsolutePath(),
-                                               new File(RM_CONFIGURATION_START.toURI()).getAbsolutePath(),
-                                               null);
-
-        final JMeterVariables vars = new JUnitSampler().getThreadContext().getVariables();
-        Integer nodesNumber = Integer.valueOf(vars.get("nodesNumber"));
+                new File(SCHEDULER_CONFIGURATION_START.toURI()).getAbsolutePath(),
+                new File(RM_CONFIGURATION_START.toURI()).getAbsolutePath(),
+                null);
 
         // start nodes
         ResourceManager rm = schedulerHelper.getResourceManager();
 
-        nodes = schedulerHelper.createRMNodeStarterNodes(TaskReconnectionWithForkedTaskExecutorTest.class.getSimpleName(),
-                                                         nodesNumber);
+        RMTHelper rmHelper = new RMTHelper();
 
-        //schedulerHelper.getJobServerLogs()
+        nodes = schedulerHelper.createRMNodeStarterNodes(NodeRecoveryHelper.class.getSimpleName(),
+                nodesNumber);
+
+
+        rmHelper.waitForNodeSourceCreation(RMConstants.DEFAULT_STATIC_SOURCE_NAME);
+//        schedulerHelper.waitForAnyMultipleNodeEvent(RMEventType.NODE_ADDED, nodesNumber);
+
+        Thread.sleep(30000);
         // kill server
         TestScheduler.kill();
 
         schedulerHelper = new SchedulerTHelper(false,
-                                               new File(SCHEDULER_CONFIGURATION_START.toURI()).getAbsolutePath(),
-                                               new File(RM_CONFIGURATION_START.toURI()).getAbsolutePath(),
-                                               null);
+                new File(SCHEDULER_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+                new File(RM_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+                null);
     }
 
-    public int timeSpentToRecoverNodes() {
+    public long timeSpentToRecoverNodes(long initalTime) {
+        Profile localProfile = ProfileBuilder.newBuilder()
+                .name("Local server log" + System.currentTimeMillis())
+                .filePath(System.getProperty("pa.rm.home") + "/logs/Scheduler-tests.log").onLocalhost().build();
 
-        return 9000;
+        GrepResults startedResults = grep(constantExpression(RMCore.RMCORE_RESTORE_NODES_STARTED), on(localProfile));
+        GrepResults finishedResults = grep(constantExpression(RMCore.RMCORE_RESTORE_NODES_FINISHED), on(localProfile));
+
+        assertEquals(1, startedResults.totalLines());
+        assertEquals(1, finishedResults.totalLines());
+
+        final String startedDateString = startedResults.iterator().next().getText().substring(1,  "[2017-11-11 11:11:11,111 ".length());
+        final String finishedDateString = finishedResults.iterator().next().getText().substring(1, "[2017-11-11 11:11:11,111 ".length());
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
+
+        Date startedDate;
+        Date finishedDate;
+        try {
+            startedDate = dateFormat.parse(startedDateString);
+            finishedDate = dateFormat.parse(finishedDateString);
+        } catch (ParseException e) {
+            throw new RuntimeException("Cannot parse \"" + startedDateString + "\" to date.", e);
+        }
+        long startedMilliseconds;
+        if(initalTime < startedDate.getTime()){
+            startedMilliseconds = startedDate.getTime();
+        }else{
+            throw new RuntimeException("There is no \"" + RMCore.RMCORE_RESTORE_NODES_STARTED + "\" line AFTER we startedMilliseconds our Scheduler.");
+        }
+        long finishedMilliseconds;
+        if(initalTime < finishedDate.getTime()){
+            finishedMilliseconds = finishedDate.getTime();
+        }else{
+            throw new RuntimeException("There is no \"" + RMCore.RMCORE_RESTORE_NODES_FINISHED + "\" line AFTER we startedMilliseconds our Scheduler.");
+        }
+
+        if(finishedMilliseconds >= startedMilliseconds){
+            return finishedMilliseconds - startedMilliseconds;
+        }else{
+            throw new RuntimeException("Timestamp finishedMilliseconds before it was startedMilliseconds");
+        }
     }
 
     public void shutdown() throws Exception {
         if (nodes != null) {
             for (TestNode node : nodes) {
-                try {
-                    node.kill();
-                } catch (Exception e) {
-                    // keep exceptions there silent
-                }
+                node.kill();
             }
         }
-        TestScheduler.kill();
+        schedulerHelper.killScheduler();
+        cleanupScheduler();
 
     }
 
