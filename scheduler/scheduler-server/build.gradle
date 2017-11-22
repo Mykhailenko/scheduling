@@ -85,16 +85,21 @@ task performanceTestJar(type: Jar) {
 
     from sourceSets.main.output
     from sourceSets.test.output
-    from rootProject.configurations.runtime.allArtifacts.files
-    from rootProject.configurations.runtime
-    from configurations.runtime.allArtifacts.files
-    from configurations.runtime
+//    from rootProject.configurations.runtime.allArtifacts.files
+//    from rootProject.configurations.runtime
+//    from configurations.runtime.allArtifacts.files
+//    from configurations.runtime
+    from project(':rm:rm-server').sourceSets.test.output
     doLast {
-        copy {
-            from configurations.runtime
-            from configurations.testCompile
-            into "${buildDir}/resources/jars/"
-        }
+//        copy {
+//            from configurations.runtime
+//            from configurations.testCompile
+//            into "${buildDir}/resources/jars/"
+//        }
+//        copy {
+//            from project(':rm:rm-server').sourceSets.test.output
+//            into "${buildDir}/resources/jars/"
+//        }
         file("${buildDir}/jmeter/bin").mkdirs()
         copy {
             from "./src/test/resources/config/log4j.conf"
@@ -113,9 +118,32 @@ task performanceTestRun {
     jmeter {
         jmTestFiles = [file("src/test/resources/jmeter/performance-java-plan.jmx")]
         // specifies where to search for jar
-        jmUserProperties = ["user.classpath=${buildDir}/resources/jars"]
+//        jmUserProperties = ["user.classpath=${buildDir}/resources/jars"]
+//        println TestScheduler.testClasspath()
+        jmUserProperties=["user.classpath=/home/Gleb/git/fork/jrochas/scheduling/jmeter-cp:" +
+                                  "/home/Gleb/git/fork/jrochas/scheduling/jmeter-cp/*"]
+//        jmUserProperties = ["user.classpath=/home/Gleb/git/fork/jrochas/scheduling/rm/rm-server/src/test/resources" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/dist/lib" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/dist/lib/*" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/addons" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/addons/*" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/scheduler/scheduler-server/build/resources/jars" +
+//                                    ":/home/Gleb/git/fork/jrochas/scheduling/scheduler/scheduler-server/build/resources/jars/*"]
+
         // plan which should be executed by JMeter
         jmLog = file("src/test/resources/jmeter/jmeter.log") // file path to log
+
+        jmSystemProperties = ['-Dfile.encoding=UTF-8',
+                      '-Djava.library.path=/home/Gleb/git/fork/jrochas/scheduling/dist/lib',
+                      '-Dpa.scheduler.home=/home/Gleb/git/fork/jrochas/scheduling',
+                      '-Djava.security.policy=/home/Gleb/git/fork/jrochas/scheduling/config/security.java.policy-server',
+//                      '-Dpa.rm.home=/home/Gleb/git/fork/jrochas/scheduling',
+                      '-XX:+UseG1GC',
+                      '-XX:+UseStringDeduplication',
+                      '-XX:+AggressiveOpts',
+                      '-XX:+ExitOnOutOfMemoryError',
+                      '-XX:-UseGCOverheadLimit']
+//        jmSystemProperties["pa.rm.home="]
         enableReports = true
         enableExtendedReports = false
     }
