@@ -70,6 +70,7 @@ public class NodeRecoveryTest extends AbstractJavaSamplerClient {
             nodeRecoveryHelper.shutdown();
 
         } catch (Exception e) {
+            System.out.println("\t\t\t\t\t\t");
             e.printStackTrace();
         }
         return sampleResult;

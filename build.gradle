@@ -61,6 +61,7 @@ def custom ={ "$rootDir/gradle/${it}.gradle"}
 apply plugin: 'java'
 apply plugin: 'org.sonarqube'
 apply from: "$rootDir/gradle/ext/coding-format.gradle"
+apply plugin: "net.foragerr.jmeter"
 
 archivesBaseName = 'scheduling' // in case current folder is not named scheduling
 
@@ -269,6 +270,47 @@ ext.schedulingFunctionalTestConfiguration = {
     }
 
 }
+
+//ext.schedulingPerformanceTestConfiguration = {
+//
+//    jmeter {
+//
+//        jmTestFiles = [file("src/test/resources/jmeter/performance-java-plan.jmx")]
+//
+//        jmLog = file("src/test/resources/jmeter/jmeter.log")
+//
+//        jmSystemProperties = []
+//
+//        jmSystemProperties << ['pa.rm.home': rootDir.absolutePath]
+//        jmSystemProperties << ['pa.scheduler.home': rootDir.absolutePath]
+//        jmSystemProperties << ['proactive.communication.protocol': 'pnp']
+//        jmSystemProperties << ['proactive.test.timeout': 800000]
+//        jmSystemProperties << ['java.awt.headless': 'true']
+//        jmSystemProperties << ['java.library.path': project.nativeLibsDir]
+//        jmSystemProperties << ['java.security.policy': file("$rootDir/config/security.java.policy-server").absolutePath]
+//        jmSystemProperties << ['file.encoding': 'UTF-8']
+//
+//        enableReports = true
+//        enableExtendedReports = false
+//
+//
+//        def performanceClean = {
+//            println project.nativeLibsDir
+//
+//            project.javaexec {
+//                main = "org.ow2.tests.ProcessCleaner"
+//
+//                classpath = fileTree(project.nativeLibsDir).include("*.jar") + project(':rm:rm-server').sourceSets.test.output
+//
+//                systemProperty "java.library.path", project.nativeLibsDir
+//            }
+//        }
+//
+//        finalizedBy project.task(project.name + '-performanceClean', { doLast performanceClean })
+//
+//    }
+//
+//}
 
 dependencies {
     distLib(project(':scheduler:scheduler-server')) {

@@ -57,11 +57,13 @@ import static org.junit.Assert.assertEquals;
 
 public class NodeRecoveryHelper extends SchedulerFunctionalTestWithCustomConfigAndRestart {
 
-    private static final URL SCHEDULER_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/scheduler-config-start.ini");
+//    private static final URL SCHEDULER_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/scheduler-config-start.ini");
+    private static final URL SCHEDULER_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/functionaltests/config/functionalTSchedulerProperties.ini");
 
     private static final URL SCHEDULER_CONFIGURATION_RESTART = TaskReconnectionWithForkedTaskExecutorTest.class.getResource("/performancetests/config/scheduler-config-restart.ini");
 
-    private static final URL RM_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/rm-config-start.ini");
+//    private static final URL RM_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/performancetests/config/rm-config-start.ini");
+    private static final URL RM_CONFIGURATION_START = NodeRecoveryHelper.class.getResource("/functionaltests/config/functionalTRMProperties-clean-db.ini");
 
     private static final URL RM_CONFIGURATION_RESTART = TaskReconnectionToRecoveredNodeTest.class.getResource("/performancetests/config/rm-config-restart.ini");
 
@@ -70,32 +72,42 @@ public class NodeRecoveryHelper extends SchedulerFunctionalTestWithCustomConfigA
     private List<TestNode> nodes;
 
     public void startKillStartScheduler(int nodesNumber) throws Exception {
+        System.out.println("\t\t\t\t");
+        System.out.println("112222222222221111111111");
+//        Thread.sleep(10000);
+
         RMFactory.setOsJavaProperty();
         schedulerHelper = new SchedulerTHelper(false,
                 new File(SCHEDULER_CONFIGURATION_START.toURI()).getAbsolutePath(),
                 new File(RM_CONFIGURATION_START.toURI()).getAbsolutePath(),
                 null);
 
+        System.out.println("\t\t\t\t");
+        System.out.println("2222");
+        Thread.sleep(10000);
+
+
         // start nodes
-        ResourceManager rm = schedulerHelper.getResourceManager();
-
-        RMTHelper rmHelper = new RMTHelper();
-
-        nodes = schedulerHelper.createRMNodeStarterNodes(NodeRecoveryHelper.class.getSimpleName(),
-                nodesNumber);
-
-
-        rmHelper.waitForNodeSourceCreation(RMConstants.DEFAULT_STATIC_SOURCE_NAME);
-//        schedulerHelper.waitForAnyMultipleNodeEvent(RMEventType.NODE_ADDED, nodesNumber);
-
-        Thread.sleep(30000);
-        // kill server
-        TestScheduler.kill();
-
-        schedulerHelper = new SchedulerTHelper(false,
-                new File(SCHEDULER_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
-                new File(RM_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
-                null);
+//        ResourceManager rm = schedulerHelper.getResourceManager();
+//
+//        RMTHelper rmHelper = new RMTHelper();
+//
+//        nodes = schedulerHelper.createRMNodeStarterNodes(NodeRecoveryHelper.class.getSimpleName(),
+//                nodesNumber);
+//
+//        System.out.println("\t\t\t\t");
+//        System.out.println("33333333333");
+//        Thread.sleep(10000);
+//
+//        rmHelper.waitForNodeSourceCreation(RMConstants.DEFAULT_STATIC_SOURCE_NAME);
+//        Thread.sleep(30000);
+//        // kill server
+//        TestScheduler.kill();
+//
+//        schedulerHelper = new SchedulerTHelper(false,
+//                new File(SCHEDULER_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+//                new File(RM_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+//                null);
     }
 
     public long timeSpentToRecoverNodes(long initalTime) {
