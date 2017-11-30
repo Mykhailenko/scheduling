@@ -25,6 +25,9 @@
  */
 package performancetests.recovery;
 
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import functionaltests.utils.SchedulerStartForFunctionalTest;
 import functionaltests.utils.TestScheduler;
 import org.apache.jmeter.protocol.java.sampler.AbstractJavaSamplerClient;
 import org.apache.jmeter.protocol.java.sampler.JavaSamplerContext;
@@ -32,7 +35,11 @@ import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.threads.JMeterContextService;
 
 import org.junit.Test;
+import org.ow2.proactive.authentication.Connection;
 import performancetests.recovery.helper.NodeRecoveryHelper;
+
+import java.util.Iterator;
+import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
 
@@ -41,10 +48,10 @@ public class NodeRecoveryTest extends AbstractJavaSamplerClient {
 
     @Test
     public void test() {
-        System.out.println(TestScheduler.testClasspath());
-//        SampleResult sampleResult = new NodeRecoveryTest().runTestHelped(10);
-//        assertTrue(sampleResult.isSuccessful());
+        SampleResult sampleResult = new NodeRecoveryTest().runTestHelped(10);
+        assertTrue(sampleResult.isSuccessful());
     }
+
 
     @Override
     public SampleResult runTest(JavaSamplerContext javaSamplerContext) {
@@ -58,6 +65,7 @@ public class NodeRecoveryTest extends AbstractJavaSamplerClient {
     public SampleResult runTestHelped(int nodesNumber) {
         SampleResult sampleResult = null;
         try {
+
             NodeRecoveryHelper nodeRecoveryHelper = new NodeRecoveryHelper();
             final long initalTime = System.currentTimeMillis();
 
@@ -70,7 +78,6 @@ public class NodeRecoveryTest extends AbstractJavaSamplerClient {
             nodeRecoveryHelper.shutdown();
 
         } catch (Exception e) {
-            System.out.println("\t\t\t\t\t\t");
             e.printStackTrace();
         }
         return sampleResult;

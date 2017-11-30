@@ -59,6 +59,7 @@ def isWindows = System.properties['os.name'].toLowerCase().contains('windows')
 def custom ={ "$rootDir/gradle/${it}.gradle"}
 
 apply plugin: 'java'
+
 apply plugin: 'org.sonarqube'
 apply from: "$rootDir/gradle/ext/coding-format.gradle"
 apply plugin: "net.foragerr.jmeter"
@@ -420,6 +421,11 @@ createStartScripts('org.ow2.proactive.utils.PAMRRouterStarter', 'proactive-route
 subprojects {
     tasks.withType(Test).matching { it.name == 'functionalTest' }*.dependsOn dist
 }
+
+subprojects {
+    tasks.withType(Test).matching { it.name == 'performanceTest' }*.dependsOn dist
+}
+
 
 subprojects {
     task allDeps(type: DependencyReportTask) {}

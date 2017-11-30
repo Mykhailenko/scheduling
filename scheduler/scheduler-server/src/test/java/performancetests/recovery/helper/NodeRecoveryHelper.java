@@ -39,6 +39,7 @@ import functionaltests.recover.TaskReconnectionToRecoveredNodeTest;
 import functionaltests.utils.*;
 import org.apache.log4j.Appender;
 import org.apache.log4j.Logger;
+import org.codehaus.groovy.runtime.powerassert.SourceText;
 import org.grep4j.core.model.Profile;
 import org.grep4j.core.model.ProfileBuilder;
 import org.grep4j.core.result.GrepResults;
@@ -72,42 +73,28 @@ public class NodeRecoveryHelper extends SchedulerFunctionalTestWithCustomConfigA
     private List<TestNode> nodes;
 
     public void startKillStartScheduler(int nodesNumber) throws Exception {
-        System.out.println("\t\t\t\t");
-        System.out.println("112222222222221111111111");
-//        Thread.sleep(10000);
-
         RMFactory.setOsJavaProperty();
         schedulerHelper = new SchedulerTHelper(false,
                 new File(SCHEDULER_CONFIGURATION_START.toURI()).getAbsolutePath(),
                 new File(RM_CONFIGURATION_START.toURI()).getAbsolutePath(),
                 null);
 
-        System.out.println("\t\t\t\t");
-        System.out.println("2222");
-        Thread.sleep(10000);
-
-
         // start nodes
-//        ResourceManager rm = schedulerHelper.getResourceManager();
-//
-//        RMTHelper rmHelper = new RMTHelper();
-//
-//        nodes = schedulerHelper.createRMNodeStarterNodes(NodeRecoveryHelper.class.getSimpleName(),
-//                nodesNumber);
-//
-//        System.out.println("\t\t\t\t");
-//        System.out.println("33333333333");
-//        Thread.sleep(10000);
-//
-//        rmHelper.waitForNodeSourceCreation(RMConstants.DEFAULT_STATIC_SOURCE_NAME);
-//        Thread.sleep(30000);
-//        // kill server
-//        TestScheduler.kill();
-//
-//        schedulerHelper = new SchedulerTHelper(false,
-//                new File(SCHEDULER_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
-//                new File(RM_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
-//                null);
+        ResourceManager rm = schedulerHelper.getResourceManager();
+
+        RMTHelper rmHelper = new RMTHelper();
+
+        nodes = schedulerHelper.createRMNodeStarterNodes(NodeRecoveryHelper.class.getSimpleName(),
+                nodesNumber);
+
+        rmHelper.waitForNodeSourceCreation(RMConstants.DEFAULT_STATIC_SOURCE_NAME);
+        // kill server
+        TestScheduler.kill();
+
+        schedulerHelper = new SchedulerTHelper(false,
+                new File(SCHEDULER_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+                new File(RM_CONFIGURATION_RESTART.toURI()).getAbsolutePath(),
+                null);
     }
 
     public long timeSpentToRecoverNodes(long initalTime) {
