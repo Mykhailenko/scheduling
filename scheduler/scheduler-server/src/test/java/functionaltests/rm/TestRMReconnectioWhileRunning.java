@@ -25,7 +25,12 @@
  */
 package functionaltests.rm;
 
-import functionaltests.utils.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+
+import java.io.File;
+import java.net.URL;
+
 import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.BeforeClass;
@@ -38,12 +43,7 @@ import org.ow2.proactive.scheduler.common.job.JobInfo;
 import org.ow2.proactive.scheduler.common.job.JobResult;
 import org.ow2.proactive.scheduler.common.job.JobStatus;
 
-import java.io.File;
-import java.net.URL;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-
+import functionaltests.utils.*;
 
 
 public class TestRMReconnectioWhileRunning extends MultipleRMTBase {
@@ -53,7 +53,9 @@ public class TestRMReconnectioWhileRunning extends MultipleRMTBase {
     private SchedulerTHelper schedulerHelper;
 
     private static URL runningJob = TestRMReconnectioWhileRunning.class.getResource("/functionaltests/descriptors/Job_20s.xml");
+
     private static URL runningJob1 = TestRMReconnectioWhileRunning.class.getResource("/functionaltests/descriptors/Job_20s-1.xml");
+
     private static URL runningJob2 = TestRMReconnectioWhileRunning.class.getResource("/functionaltests/descriptors/Job_20s-2.xml");
 
     @BeforeClass
@@ -65,8 +67,6 @@ public class TestRMReconnectioWhileRunning extends MultipleRMTBase {
         initConfigs();
     }
 
-
-    @Ignore
     @Test
     public void test() throws Exception {
         ProActiveConfiguration.load();
@@ -97,7 +97,7 @@ public class TestRMReconnectioWhileRunning extends MultipleRMTBase {
 
     @After
     public void stopRMs() throws Exception {
-        if(schedulerHelper != null){
+        if (schedulerHelper != null) {
             schedulerHelper.killScheduler();
         }
     }
