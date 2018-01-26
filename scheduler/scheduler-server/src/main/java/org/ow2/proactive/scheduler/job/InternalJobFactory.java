@@ -34,6 +34,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Logger;
 import org.ow2.proactive.authentication.crypto.Credentials;
@@ -132,26 +134,24 @@ public class InternalJobFactory {
         List<FlowChecker.Block> blocks = new ArrayList<>();
         FlowError err = FlowChecker.validate(userJob, blocks);
         if (err != null) {
-            String e = "";
-
-            e += "Invalid taskflow: " + err.getMessage() + "; context: " + err.getTask();
-            logger.error(e);
-            throw new JobCreationException(e, err);
+            final String message = String.format("Invalid taskflow: %s; context: %s", err.getMessage(), err.getTask());
+            logger.error(message);
+            throw new JobCreationException(message, err);
         }
 
         InternalJob job = new InternalTaskFlowJob();
         // keep an initial job content
         job.setTaskFlowJob(userJob);
-        Map<Task, InternalTask> tasksList = new LinkedHashMap<>();
-        boolean hasPreciousResult = false;
+        Map<Task, InternalTask> tasksList = new ConcurrentHashMap<>();
 
-        for (Task t : userJob.getTasks()) {
-            tasksList.put(t, createTask(userJob, job, t));
-
-            if (!hasPreciousResult) {
-                hasPreciousResult = t.isPreciousResult();
+        userJob.getTasks().parallelStream().forEach(t -> {
+            try {
+                tasksList.put(t, createTask(userJob, job, t));
+            } catch (JobCreationException e) {
+                logger.warn("Error during task creation", e );
             }
-        }
+        });
+
 
         for (Entry<Task, InternalTask> entry : tasksList.entrySet()) {
             if (entry.getKey().getDependencesList() != null) {
@@ -273,16 +273,16 @@ public class InternalJobFactory {
             try {
                 if (isForkingTask()) {
                     javaTask = new InternalForkedScriptTask(new ScriptExecutableContainer(new TaskScript(new SimpleScript(task.getExecutableClassName(),
-                                                                                                                          JavaClassScriptEngineFactory.JAVA_CLASS_SCRIPT_ENGINE_NAME,
-                                                                                                                          new Serializable[] { args }))),
-                                                            internalJob);
+                            JavaClassScriptEngineFactory.JAVA_CLASS_SCRIPT_ENGINE_NAME,
+                            new Serializable[]{args}))),
+                            internalJob);
                     javaTask.setForkEnvironment(task.getForkEnvironment());
                     configureRunAsMe(task);
                 } else {
                     javaTask = new InternalScriptTask(new ScriptExecutableContainer(new TaskScript(new SimpleScript(task.getExecutableClassName(),
-                                                                                                                    JavaClassScriptEngineFactory.JAVA_CLASS_SCRIPT_ENGINE_NAME,
-                                                                                                                    new Serializable[] { args }))),
-                                                      internalJob);
+                            JavaClassScriptEngineFactory.JAVA_CLASS_SCRIPT_ENGINE_NAME,
+                            new Serializable[]{args}))),
+                            internalJob);
                 }
             } catch (InvalidScriptException e) {
                 throw new JobCreationException(e);
@@ -328,13 +328,13 @@ public class InternalJobFactory {
             InternalTask scriptTask;
             if (isForkingTask()) {
                 scriptTask = new InternalForkedScriptTask(new ScriptExecutableContainer(new TaskScript(new SimpleScript(commandAndArguments,
-                                                                                                                        "native"))),
-                                                          internalJob);
+                        "native"))),
+                        internalJob);
                 configureRunAsMe(task);
             } else {
                 scriptTask = new InternalScriptTask(new ScriptExecutableContainer(new TaskScript(new SimpleScript(commandAndArguments,
-                                                                                                                  "native"))),
-                                                    internalJob);
+                        "native"))),
+                        internalJob);
             }
             ForkEnvironment forkEnvironment = new ForkEnvironment();
             scriptTask.setForkEnvironment(forkEnvironment);
@@ -376,7 +376,7 @@ public class InternalJobFactory {
     /**
      * Set some properties between the user Job and internal Job.
      *
-     * @param job the user job.
+     * @param job      the user job.
      * @param jobToSet the internal job to set.
      * @throws IllegalAccessException
      * @throws IllegalArgumentException
@@ -392,7 +392,7 @@ public class InternalJobFactory {
     /**
      * Set some properties between the user task and internal task.
      *
-     * @param task the user task.
+     * @param task      the user task.
      * @param taskToSet the internal task to set.
      * @throws IllegalAccessException
      * @throws IllegalArgumentException
@@ -425,10 +425,10 @@ public class InternalJobFactory {
      * Will only iterate on non-private field.
      * Private fields in 'cFrom' won't be set in 'to'.
      *
-     * @param <T> check type given as argument is equals or under this type.
+     * @param <T>   check type given as argument is equals or under this type.
      * @param klass the klass in which to find the fields
-     * @param from the T object in which to get the value
-     * @param to the T object in which to set the value
+     * @param from  the T object in which to get the value
+     * @param to    the T object in which to set the value
      */
     private static <T> void autoCopyfields(Class<T> klass, T from, T to)
             throws IllegalArgumentException, IllegalAccessException {
