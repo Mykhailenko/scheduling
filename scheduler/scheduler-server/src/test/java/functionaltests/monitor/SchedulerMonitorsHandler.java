@@ -35,8 +35,12 @@ import java.util.Vector;
 
 import org.objectweb.proactive.core.ProActiveTimeoutException;
 import org.objectweb.proactive.utils.TimeoutAccounter;
+import org.ow2.proactive.scheduler.common.Scheduler;
 import org.ow2.proactive.scheduler.common.SchedulerEvent;
 import org.ow2.proactive.scheduler.common.SchedulerState;
+import org.ow2.proactive.scheduler.common.exception.NotConnectedException;
+import org.ow2.proactive.scheduler.common.exception.PermissionException;
+import org.ow2.proactive.scheduler.common.exception.UnknownJobException;
 import org.ow2.proactive.scheduler.common.job.JobId;
 import org.ow2.proactive.scheduler.common.job.JobInfo;
 import org.ow2.proactive.scheduler.common.job.JobState;
@@ -462,26 +466,6 @@ public class SchedulerMonitorsHandler {
                 }
             }
             monitor.setTimeouted(true);
-        }
-        throw new ProActiveTimeoutException("timeout elapsed");
-    }
-
-    public void waitWithAnyMonitor(long timeout, EventMonitor... monitors)
-            throws ProActiveTimeoutException, InterruptedException {
-        TimeoutAccounter counter = TimeoutAccounter.getAccounter(timeout);
-        synchronized (monitors) {
-            Arrays.stream(monitors).forEach(monitor -> monitor.setTimeouted(false));
-
-            while (!counter.isTimeoutElapsed()) {
-                if (Arrays.stream(monitors).anyMatch(monitor -> monitor.eventOccured)) {
-                    return;
-                }
-
-                Thread.sleep(1000);
-            }
-
-            Arrays.stream(monitors).forEach(monitor -> monitor.setTimeouted(true));
-
         }
         throw new ProActiveTimeoutException("timeout elapsed");
     }
