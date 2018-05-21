@@ -61,7 +61,7 @@ public class TaskSchedulingTimeTest extends PerformanceTestBase {
      */
     @Parameterized.Parameters
     public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[][] { { 1000, 2000 } });
+        return Arrays.asList(new Object[][] { { 1, 2000 } });
     }
 
     private final int numberOfExperiments;
