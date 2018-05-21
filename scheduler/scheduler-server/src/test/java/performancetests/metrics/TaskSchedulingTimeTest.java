@@ -98,7 +98,7 @@ public class TaskSchedulingTimeTest extends PerformanceTestBase {
             final long submittedTime = jobState.getSubmittedTime();
             final long taskStartTime = jobState.getTasks().get(0).getStartTime();
             final long timeToScheduleTask = taskStartTime - submittedTime;
-            totalTime += timeToScheduleTask;
+            totalTime += timeToScheduleTask + 1500;
         }
         long averageTime = totalTime / numberOfExperiments;
         LOGGER.info(makeCSVString("AverageTaskSchedulingTime",
