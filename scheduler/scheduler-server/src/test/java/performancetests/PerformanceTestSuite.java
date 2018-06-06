@@ -33,6 +33,7 @@ import performancetests.metrics.ParallelTaskSchedulingTest;
 import performancetests.metrics.SchedulerEfficiencyMetricsTest;
 import performancetests.metrics.TaskCreationTimeTest;
 import performancetests.metrics.TaskSchedulingTimeTest;
+import performancetests.probability.TaskSchedulingTimeTestProb;
 import performancetests.recovery.JobRecoveryTest;
 import performancetests.recovery.NodeRecoveryTest;
 
@@ -47,7 +48,8 @@ import performancetests.recovery.NodeRecoveryTest;
                       ParallelTaskSchedulingTest.class,
 
                       // Test which computes average metrics
-                      TaskSchedulingTimeTest.class
+                      TaskSchedulingTimeTest.class,
+                      TaskSchedulingTimeTestProb.class
 
 })
 
