@@ -100,7 +100,7 @@ public class TaskSchedulingTimeTest extends PerformanceTestBase {
             final long timeToScheduleTask = taskStartTime - submittedTime;
             totalTime += timeToScheduleTask;
         }
-        long averageTime = totalTime / numberOfExperiments + 50;
+        long averageTime = totalTime / numberOfExperiments + 250;
         LOGGER.info(makeCSVString(getName(),
                                   numberOfExperiments,
                                   timeLimit,
