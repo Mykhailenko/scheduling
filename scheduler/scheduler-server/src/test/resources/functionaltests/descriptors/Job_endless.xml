@@ -18,7 +18,7 @@
                 <script>
                     <code language="groovy">
                         <![CDATA[
-Thread.sleep(6000000)
+Thread.sleep(60000)
 ]]>
                     </code>
                 </script>

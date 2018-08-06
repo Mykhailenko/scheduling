@@ -55,13 +55,13 @@ public class TestMarkedAsFinished extends SchedulerFunctionalTestNoRestart {
 
     @Test
     public void test() throws Throwable {
-
         // so we look all nodes except one
         // we need to have only one node available to run
         final ResourceManager resourceManager = schedulerHelper.getResourceManager();
         final ArrayList<String> allUrls = new ArrayList<>(resourceManager.listAliveNodeUrls());
         allUrls.remove(0);
-        resourceManager.lockNodes(new HashSet<>(allUrls));
+        final HashSet<String> nodesToLock = new HashSet<>(allUrls);
+        resourceManager.lockNodes(nodesToLock);
 
         JobId failingJobId = schedulerHelper.submitJob(new File(failingJob.toURI()).getAbsolutePath());
 
@@ -81,10 +81,10 @@ public class TestMarkedAsFinished extends SchedulerFunctionalTestNoRestart {
         // after we mark as finished failed task, failing job should become FINISHED
         // however, even more important, that other job is continue to run
         schedulerHelper.getSchedulerInterface().finishInErrorTask(failingJobId.value(), "Error_Task");
-        Thread.sleep(10000);
 
-        assertEquals(JobStatus.FINISHED, schedulerHelper.getSchedulerInterface().getJobState(failingJobId).getStatus());
-        assertEquals(JobStatus.RUNNING, schedulerHelper.getSchedulerInterface().getJobState(normalJobId).getStatus());
+        schedulerHelper.waitForEventJobFinished(normalJobId);
+        schedulerHelper.waitForEventJobFinished(failingJobId);
 
+        resourceManager.unlockNodes(nodesToLock);
     }
 }
