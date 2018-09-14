@@ -25,17 +25,17 @@
  */
 package org.ow2.proactive.scheduler.policy.edf;
 
+import static java.util.Arrays.asList;
+
 import java.time.Duration;
-import java.util.Calendar;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 import org.ow2.proactive.scheduler.common.JobDescriptor;
 import org.ow2.proactive.scheduler.common.job.JobPriority;
+import org.ow2.proactive.scheduler.common.job.JobState;
 import org.ow2.proactive.scheduler.core.JobEmailNotificationException;
 import org.ow2.proactive.scheduler.descriptor.EligibleTaskDescriptor;
 import org.ow2.proactive.scheduler.descriptor.JobDescriptorImpl;
@@ -47,7 +47,7 @@ import org.ow2.proactive.scheduler.policy.ExtendedSchedulerPolicy;
  * Early Deadline First Policy sorts jobs based on:
  * - job priorities (from highest to lowest)
  * - job deadline (those that have deadline overtake those without deadline)
- *
+ * <p>
  * Among the job with the dealine (and having same priority) we distinguish
  * them by the fact if some task of the job is already scheduled (i.g. job has
  * a startingTime) or not. Those that started has a priority to the not yet started jobs.
@@ -55,7 +55,7 @@ import org.ow2.proactive.scheduler.policy.ExtendedSchedulerPolicy;
  * If job is not started, we sort them by `effectiveDeadline - (now() + expectedTime`.
  * If deadline is absolute then effectiveDeadline equals to deadline.
  * If deadline is relative then effectiveDeadline is calculated as (now() + deadline)
- *
+ * <p>
  * Among jobs without deadline (and the same priority), we sort them by submission date.
  *
  * @author The ProActive Team
@@ -69,76 +69,55 @@ public class EDFPolicyExtended extends ExtendedSchedulerPolicy {
 
     @Override
     public LinkedList<EligibleTaskDescriptor> getOrderedTasks(List<JobDescriptor> jobs) {
-        final Date now = new Date();
-
         fireEventsIfSomeJobsWillNotMeetTheirDeadlines(jobs);
 
-        final Comparator<JobDescriptor> jobDescriptorComparator = (job1, job2) -> {
-
-            final InternalJob internalJob1 = ((JobDescriptorImpl) job1).getInternal();
-            final InternalJob internalJob2 = ((JobDescriptorImpl) job2).getInternal();
-            JobPriority job1Priority = internalJob1.getPriority();
-            JobPriority job2Priority = internalJob2.getPriority();
-            if (!job1Priority.equals(job2Priority)) {
-                // if priorities are different compare by them
-                return job2Priority.compareTo(job1Priority);
-            } else { // priorities are the same
-                if (internalJob1.getJobDeadline().isPresent() & !internalJob2.getJobDeadline().isPresent()) {
-                    // job with deadline has an advanrage to the job without deadline
-                    return -1;
-                } else if (!internalJob1.getJobDeadline().isPresent() & internalJob2.getJobDeadline().isPresent()) {
-                    // job with deadline has an advanrage to the job without deadline
-                    return 1;
-                } else if (noDeadlines(internalJob1, internalJob2)) {
-                    // if two jobs do not have deadlines - we compare by the submitted time
-                    return Long.compare(internalJob1.getJobInfo().getSubmittedTime(),
-                                        internalJob2.getJobInfo().getSubmittedTime());
-                } else { // both dead line are present
-                    if (bothStarted(internalJob1, internalJob2)) {
-                        // both jobs are started
-                        // then compare their startTime
-                        return Long.compare(internalJob1.getJobInfo().getStartTime(),
-                                            internalJob2.getJobInfo().getStartTime());
-                    } else if (internalJob1.getJobInfo().getStartTime() >= 0 &&
-                               internalJob2.getJobInfo().getStartTime() < 0) {
-                        // priority to already started - internalJob1
-                        return -1;
-                    } else if (internalJob1.getJobInfo().getStartTime() < 0 &&
-                               internalJob2.getJobInfo().getStartTime() >= 0) {
-                        // priority to already started - internalJob2
-                        return 1;
-                    } else { // non of the jobs are started
-                        // give a priority with the smaller interval between possible end of the job
-                        // and job deadline
-                        final Duration gap1 = durationBetweenFinishAndDeadline(internalJob1, now);
-                        final Duration gap2 = durationBetweenFinishAndDeadline(internalJob2, now);
-                        return gap1.compareTo(gap2);
-                    }
-
-                }
-            }
-        };
-
         return jobs.stream()
-                   .sorted(jobDescriptorComparator)
-                   .flatMap(jobDescriptor -> jobDescriptor.getEligibleTasks().stream())
+                   .sorted(new CompositeComparator(byPriority,
+                                                   deadlineOverNoDeadline,
+                                                   startedOverNotStarted,
+                                                   byStartedTime,
+                                                   byDistanceBetweenFinishAndDeadline.apply(new Date()),
+                                                   bySubmittedTime))
+                   .map(JobDescriptor::getEligibleTasks)
+                   .flatMap(Collection::stream)
                    .map(taskDescriptors -> (EligibleTaskDescriptor) taskDescriptors)
                    .collect(Collectors.toCollection(LinkedList::new));
     }
 
-    private boolean bothStarted(InternalJob internalJob1, InternalJob internalJob2) {
-        return internalJob1.getJobInfo().getStartTime() >= 0 && internalJob2.getJobInfo().getStartTime() >= 0;
-    }
+    private void fireEventsIfSomeJobsWillNotMeetTheirDeadlines(List<JobDescriptor> jobs) {
+        Date now = new Date();
+        final List<InternalJob> jobsInDanger = jobs.stream()
+                                                   .map(jobDescriptor -> ((JobDescriptorImpl) jobDescriptor).getInternal())
+                                                   .filter(job -> {
+                                                       Date effectiveDeadline = getEffectiveDeadline(job, now);
+                                                       Date effectiveExpExecTime = getEffectiveExpectedExecutionTime(job,
+                                                                                                                     now);
+                                                       return effectiveDeadline.compareTo(effectiveExpExecTime) < 0;
+                                                   })
+                                                   .collect(Collectors.toList());
 
-    private boolean noDeadlines(InternalJob internalJob1, InternalJob internalJob2) {
-        return !internalJob1.getJobDeadline().isPresent() & !internalJob2.getJobDeadline().isPresent();
+        jobsInDanger.forEach(job -> {
+            LOGGER.warn(String.format("Job[id=%s] might miss its deadline (expected finish: %s after deadline: %s)",
+                                      job.getId().value(),
+                                      getEffectiveExpectedExecutionTime(job, now),
+                                      getEffectiveDeadline(job, now)));
+            try {
+                new JobDeadlineEmailNotification(job).doSend();
+            } catch (JobEmailNotificationException e) {
+                LOGGER.error("Cannot send an email: ", e);
+            }
+        });
     }
 
     private static Duration durationBetweenFinishAndDeadline(InternalJob internalJob, Date now) {
-        final Date effectiveDeadline = getEffectiveDeadline(internalJob, now);
-        final Date effectiveExpectedExecutionTime = getEffectiveExpectedExecutionTime(internalJob, now);
-        final long gapInMillis = effectiveDeadline.getTime() - effectiveExpectedExecutionTime.getTime();
-        return Duration.ofMillis(gapInMillis);
+        if (internalJob.getJobDeadline().isPresent()) {
+            final Date effectiveDeadline = getEffectiveDeadline(internalJob, now);
+            final Date effectiveExpectedExecutionTime = getEffectiveExpectedExecutionTime(internalJob, now);
+            final long gapInMillis = effectiveDeadline.getTime() - effectiveExpectedExecutionTime.getTime();
+            return Duration.ofMillis(gapInMillis);
+        } else {
+            return Duration.ZERO;
+        }
     }
 
     /**
@@ -173,25 +152,67 @@ public class EDFPolicyExtended extends ExtendedSchedulerPolicy {
         }
     }
 
-    private void fireEventsIfSomeJobsWillNotMeetTheirDeadlines(List<JobDescriptor> jobs) {
-        Date now = new Date();
-        final List<InternalJob> jobsWhichWillMissDeadlines = jobs.stream()
-                                                                 .map(jobDescriptor -> ((JobDescriptorImpl) jobDescriptor).getInternal())
-                                                                 .filter(job -> getEffectiveDeadline(job,
-                                                                                                     now).compareTo(getEffectiveExpectedExecutionTime(job,
-                                                                                                                                                      now)) < 0)
-                                                                 .collect(Collectors.toList());
+    private static class CompositeComparator implements Comparator<JobDescriptor> {
 
-        jobsWhichWillMissDeadlines.forEach(job -> {
-            LOGGER.warn(String.format("Job[id=%s] might miss its deadline (expected finish: %s after deadline: %s)",
-                                      job.getId().value(),
-                                      getEffectiveExpectedExecutionTime(job, now),
-                                      getEffectiveDeadline(job, now)));
-            try {
-                new JobDeadlineEmailNotification(job).doSend();
-            } catch (JobEmailNotificationException e) {
-                LOGGER.error(e);
+        private List<Comparator<InternalJob>> comparators;
+
+        public CompositeComparator(Comparator<InternalJob>... comparators) {
+            this.comparators = asList(comparators);
+        }
+
+        @Override
+        public int compare(JobDescriptor job1, JobDescriptor job2) {
+            InternalJob internal1 = ((JobDescriptorImpl) job1).getInternal();
+            InternalJob internal2 = ((JobDescriptorImpl) job2).getInternal();
+
+            for (Comparator<InternalJob> comparator : comparators) {
+                final int result = comparator.compare(internal1, internal2);
+                if (result != 0) {
+                    return result;
+                }
             }
-        });
+            return 0;
+        }
     }
+
+    private static final Comparator<InternalJob> byPriority = Comparator.comparing(JobState::getPriority);
+
+    private static final Comparator<InternalJob> deadlineOverNoDeadline = (job1, job2) -> {
+        if (job1.getJobDeadline().isPresent() && !job2.getJobDeadline().isPresent()) {
+            return -1;
+        } else if (!job1.getJobDeadline().isPresent() && job2.getJobDeadline().isPresent()) {
+            return 1;
+        } else {
+            return 0;
+        }
+    };
+
+    private static final Comparator<InternalJob> startedOverNotStarted = (job1, job2) -> {
+        if (job1.getJobInfo().getStartTime() >= 0 && job2.getJobInfo().getStartTime() < 0) {
+            return -1;
+        } else if (job1.getJobInfo().getStartTime() < 0 && job2.getJobInfo().getStartTime() >= 0) {
+            return 1;
+        } else {
+            return 0;
+        }
+    };
+
+    private static final Comparator<InternalJob> byStartedTime = (job1, job2) -> {
+        if (job1.getJobInfo().getStartTime() >= 0 && job2.getJobInfo().getStartTime() >= 0) {
+            return Long.compare(job1.getJobInfo().getStartTime(), job2.getJobInfo().getStartTime());
+        } else {
+            return 0;
+        }
+    };
+
+    private static final Function<Date, Comparator<InternalJob>> byDistanceBetweenFinishAndDeadline = (
+            now) -> (job1, job2) -> {
+                Duration gap1 = durationBetweenFinishAndDeadline(job1, now);
+                Duration gap2 = durationBetweenFinishAndDeadline(job2, now);
+                return gap1.compareTo(gap2);
+            };
+
+    private static final Comparator<InternalJob> bySubmittedTime = (job1,
+            job2) -> Long.compare(job1.getJobInfo().getSubmittedTime(), job1.getJobInfo().getSubmittedTime());
+
 }
